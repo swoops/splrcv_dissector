@@ -21,14 +21,17 @@
 
 #include <config.h>
 
-#define SPL_DEBUG_IT
 
-#define DEBUG_MSG(x,pinfo) printf()
+#define SPL_DEBUG
+#ifdef SPL_DEBUG
+#include <stdio.h> // XXX DEBUG ONLY
+#define dbg(fmt, ...) \
+if (!strchr(fmt, '\n')) printf(fmt "  ->  %s:%d\n", ##__VA_ARGS__, __FUNCTION__, __LINE__); \
+else printf(fmt, ##__VA_ARGS__);
 #else
-#define DEBUG_MSG(x) do {} while(0)
+#define dbg(...) do {} while(0)
 #endif
 
-#include <stdio.h> // XXX DEBUG ONLY
 #include <epan/packet.h>   /* Should be first Wireshark include (other than config.h) */
 #include <epan/expert.h>   /* Include only as needed */
 #include <epan/prefs.h>    /* Include only as needed */
@@ -383,7 +386,7 @@ dissect_trad_event(ptvcursor_t *cursor, packet_info *pinfo)
     gint value, i;
 
     ptvcursor_add_with_subtree(cursor, proto_splrcv, SUBTREE_UNDEFINED_LENGTH, ENC_NA, ett_splrcv);
-    printf("[%d] in trad event!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", pinfo->num);
+    dbg("[%d] in trad event!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", pinfo->num);
     col_set_str(pinfo->cinfo, COL_INFO, "Traditional Event");
 
     /* packet size */
@@ -472,19 +475,19 @@ set_opcode(ptvcursor_t *cursor, packet_info *pinfo, int op)
     const char *opname = type_to_str(op);
     const gchar *s;
     if (byte != op) {
-        printf("Opcode NOT: %d, it's %d\n", op, byte);
+        dbg("Opcode NOT: %d, it's %d", op, byte);
         return SPL_ERR;
     }
-    printf("[%d] OP '%s' at offset: 0x%x\n", pinfo->num, opname, ptvcursor_current_offset(cursor));
+    dbg("[%d] OP '%s' at offset: 0x%x", pinfo->num, opname, ptvcursor_current_offset(cursor));
 
     ptvcursor_add_with_subtree(cursor, proto_splrcv, SUBTREE_UNDEFINED_LENGTH, ENC_NA, ett_splrcv);
 
     s = col_get_text(pinfo->cinfo, COL_INFO);
     if (!s || !s[0]) {
-        printf("[%d] current info is empty\n", pinfo->num);
+        dbg("[%d] current info is empty", pinfo->num);
         col_add_str(pinfo->cinfo, COL_INFO, opname);
     } else {
-        printf("[%d] current info is %s\n", pinfo->num, s);
+        dbg("[%d] current info is %s", pinfo->num, s);
         col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", opname);
     }
 
@@ -719,7 +722,7 @@ dissect_splrcv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     while (ret == SPL_OK && cursor_space_left(cursor) > 0) {
         int type = packet_type(cursor);
         pdustart = ptvcursor_current_offset(cursor); /* for desegment */
-        printf("[%d] %s at 0x%x\n", pinfo->num, type_to_str(type), pdustart);
+        dbg("[%d] %s at 0x%x", pinfo->num, type_to_str(type), pdustart);
         switch (type) {
             case SPL_SIG:
                 ret = dissect_signature(cursor, pinfo);
@@ -765,19 +768,19 @@ dissect_splrcv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             }
         } else {
             // ERROR
-            printf("[%d] got error %d\n", pinfo->num, ret);
+            dbg("[%d] got error %d", pinfo->num, ret);
             ptvcursor_free(cursor);
             return 0;
         }
     }
 
     /* debug only*/
-    printf("[%d] splrcv returning 0x%x from 0x%x\n", pinfo->num, ptvcursor_current_offset(cursor), tvb_captured_length(tvb));
+    dbg("[%d] splrcv returning 0x%x from 0x%x", pinfo->num, ptvcursor_current_offset(cursor), tvb_captured_length(tvb));
     if (pinfo->desegment_len != 0) {
         if (pinfo->desegment_len == SPL_DESEG) {
-            printf("[%d] splrcv reassemble offset: 0x%x len: SPL_DESEG\n", pinfo->num, pinfo->desegment_offset);
+            dbg("[%d] splrcv reassemble offset: 0x%x len: SPL_DESEG", pinfo->num, pinfo->desegment_offset);
         } else {
-            printf("[%d] splrcv reassemble offset: 0x%x len: 0x%x\n", pinfo->num, pinfo->desegment_offset, pinfo->desegment_len);
+            dbg("[%d] splrcv reassemble offset: 0x%x len: 0x%x", pinfo->num, pinfo->desegment_offset, pinfo->desegment_len);
         }
     }
 
